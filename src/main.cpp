@@ -2,13 +2,16 @@
 
 #include <balltze/logger.hpp>
 #include <balltze/plugin.hpp>
+#include "postprocess/postprocess.hpp"
 
-Balltze::Logger logger("Halo world");
+namespace Raccoon {
+    Balltze::Logger logger("Raccoon");
+}
 
 BALLTZE_PLUGIN_API Balltze::PluginMetadata plugin_metadata() {
     return {
-        "Halo world",
-        "Plugin's author",
+        "Raccoon",
+        "MangoFizz",
         { 1, 0, 0, 0 },
         { 1, 0, 0, 0 },
         true
@@ -16,12 +19,12 @@ BALLTZE_PLUGIN_API Balltze::PluginMetadata plugin_metadata() {
 }
 
 BALLTZE_PLUGIN_API bool plugin_init() noexcept {
-    logger.info("Hello world!");
+    Raccoon::PostProcess::set_up_postprocess_effects();
     return true;
 }
 
 BALLTZE_PLUGIN_API void plugin_load() noexcept {
-    logger.info("Hello world again!");
+    Raccoon::logger.info("Loaded");
 }
 
 WINAPI BOOL DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
