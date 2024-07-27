@@ -12,8 +12,8 @@ BALLTZE_PLUGIN_API Balltze::PluginMetadata plugin_metadata() {
     return {
         "Raccoon",
         "MangoFizz",
-        { 1, 0, 0, 0 },
-        { 1, 0, 0, 0 },
+        { 1, 0, 0 },
+        { 1, 0, 0 },
         true
     };
 }

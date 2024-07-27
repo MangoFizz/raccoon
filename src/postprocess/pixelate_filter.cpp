@@ -6,7 +6,7 @@
 #include <balltze/events/d3d9.hpp>
 #include <balltze/events/render.hpp>
 #include <balltze/engine/tag.hpp>
-#include <balltze/engine/renderer.hpp>
+#include <balltze/engine/rasterizer.hpp>
 #include <balltze/helpers/d3d9.hpp>
 #include <balltze/helpers/resources.hpp>
 #include <balltze/memory.hpp>
@@ -26,7 +26,7 @@ namespace Raccoon::PostProcess {
     static Engine::RenderTarget *render_targets = nullptr;
     static void(*render_text_function_1)() = nullptr;
     static void(*render_text_function_2)() = nullptr;
-    static std::uint32_t render_ui_param;
+    static std::uint32_t ui_render_player_index;
     static Event::EventListenerHandle<Event::TickEvent> tick_event_listener_handle;
 
     static HRESULT load_pixelate_pixel_shader(IDirect3DDevice9 *device, IDirect3DPixelShader9 **shader) {
@@ -82,7 +82,7 @@ namespace Raccoon::PostProcess {
             return;
         }
 
-        device = event.args.device;
+        device = event.context.device;
         if(!device) {
             return;
         }
@@ -113,7 +113,7 @@ namespace Raccoon::PostProcess {
         auto render_target_2 = render_targets[1];
         auto render_target_2_surface = render_target_2.surface;
         render_target_2.surface = pixelate_render_target_surface;
-        Engine::render_hud();
+        Engine::render_player_hud();
         render_target_2.surface = render_target_2_surface;
         device->SetRenderTarget(0, pixelate_render_target_surface);
 
@@ -121,11 +121,11 @@ namespace Raccoon::PostProcess {
         auto asd = reinterpret_cast<std::uint16_t *>(0x006B4C00);
         auto asd2 = reinterpret_cast<bool *>(0x006B4C00 + 2);
         if(*asd2 == false && *asd == 0xFFFF) {
-            Engine::render_post_carnage_report();
+            Engine::render_netgame_post_carnage_report();
         }
         
         // Render ui stuff
-        Engine::render_ui(render_ui_param);
+        Engine::render_user_interface_widgets(ui_render_player_index);
         render_text_function_1();
         render_text_function_2();
 
@@ -136,7 +136,7 @@ namespace Raccoon::PostProcess {
 
     static void on_ui_render_event(Event::UIRenderEvent &event) {
         if(event.time == Event::EVENT_TIME_BEFORE) {
-            render_ui_param = event.args.unknown_param_1;
+            ui_render_player_index = event.context.player_index;
             event.cancel();
             return;
         }
