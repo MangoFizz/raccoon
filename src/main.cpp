@@ -5,6 +5,10 @@
 #include "postprocess/postprocess.hpp"
 
 namespace Raccoon {
+    namespace Medals {
+        void set_up_h4_medals();
+    }
+
     Balltze::Logger logger("Raccoon");
 }
 
@@ -19,7 +23,8 @@ BALLTZE_PLUGIN_API Balltze::PluginMetadata plugin_metadata() {
 }
 
 BALLTZE_PLUGIN_API bool plugin_init() noexcept {
-    Raccoon::PostProcess::set_up_postprocess_effects();
+    // Raccoon::PostProcess::set_up_postprocess_effects();
+    Raccoon::Medals::set_up_h4_medals();
     return true;
 }
 

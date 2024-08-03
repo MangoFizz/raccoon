@@ -11,6 +11,8 @@ include(balltze-lib/balltze.cmake)
 add_library(raccoon MODULE
     src/postprocess/pixelate_filter.cpp
     src/postprocess/shaders.rc
+    src/medals/medal.cpp
+    src/medals/render_queue.cpp
     src/main.cpp
 )
 
