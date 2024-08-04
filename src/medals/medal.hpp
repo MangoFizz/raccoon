@@ -50,97 +50,42 @@ namespace Raccoon::Medals {
         std::optional<long> m_max_duration_buffer;
 
     public:
-        /**
-         * Get the duration of the whole animation (in milliseconds)
-         */
         long duration() noexcept;
-
-        /**
-         * Set a property of the animation
-         * @param property      Animation property
-         * @param curve         The quadratic bezier used to generate the property frames
-         * @param value         The value of the property
-         * @param duration      Duration of the animation for this property in milliseconds
-         */
         void add_property_keyframe(MedalStateProperty property, Math::QuadraticBezier curve, Keyframe::Value value, long duration) noexcept;
-
-        /**
-         * Apply the current state of the animation transform to a render state
-         * @param state     Reference to render state
-         */
         MedalState get_state_at(std::chrono::milliseconds elapsed) noexcept;
-
-        /**
-         * Default constructor for animation
-         */
         MedalSequence() = default;
     };
 
     class Medal {
     private:
         std::string m_name;
-        std::uint16_t m_width = 0;
-        std::uint16_t m_height = 0;
-        BitmapData *m_bitmap;
-        Engine::TagHandle m_sound_tag;
+        std::uint16_t m_width;
+        std::uint16_t m_height;
+        std::uint8_t m_fps;
+        std::vector<BitmapData *> m_bitmaps;
+        std::string m_bitmap_tag_path;
+        std::string m_sound_tag_path;
         MedalSequence *m_sequence;
-        MedalState m_state;
-        std::optional<TimePoint> m_creation_time;
 
     public:
-        /**
-         * Get the name of the medal
-         */
         std::string &name() noexcept;
-
-        /**
-         * Get the width of the medal
-         */
         std::uint16_t width() noexcept;
-
-        /**
-         * Get the height of the medal
-         */
         std::uint16_t height() noexcept;
-
-        /**
-         * Get the bitmap of the medal
-         */
-        BitmapData *bitmap() noexcept;
-
-        /**
-         * Get the sound of the medal
-         */
-        Engine::TagHandle sound_tag() noexcept;
-
-        /**
-         * Get the current state of the medal
-         */
-        MedalState &state() noexcept;
-
-        /**
-         * Get the creation time of the medal
-         */
-        TimePoint creation_time() noexcept;
-
-        /**
-         * Get the animation sequence of the medal
-         */
+        std::string sound_tag_path() noexcept;
+        std::string bitmap_tag_path() noexcept;
         MedalSequence const *sequence() noexcept;
+        MedalState draw(Engine::Point2D offset, std::optional<TimePoint> creation_time) noexcept;
+        void reload_bitmap_tag();
 
-        /**
-         * Set the bitmap of the medal
-         * @param bitmap    Bitmap data
-         */
-        MedalState draw(Engine::Point2D offset) noexcept;
+        Medal(std::string name, std::uint16_t width, std::uint16_t height, std::string bitmap_tag_path, std::string sound_tag_path, MedalSequence &sequence) 
+          : m_name(name), m_width(width), m_height(height), m_bitmap_tag_path(bitmap_tag_path), m_sound_tag_path(sound_tag_path), m_sequence(&sequence) {
+            m_fps = 0;
+            reload_bitmap_tag();
+        }
 
-        /**
-         * Default constructor for medal
-         */
-        Medal(std::string name, BitmapData &bitmap, std::uint16_t width, std::uint16_t height, Engine::TagHandle sound_tag, MedalSequence &sequence) 
-          : m_name(name), m_bitmap(&bitmap), m_width(width), m_height(height), m_sound_tag(sound_tag), m_sequence(&sequence) {
-            m_state = MedalState();
-            m_creation_time = std::nullopt;
+        Medal(std::string name, std::uint16_t width, std::uint16_t height, std::uint8_t fps, std::string bitmap_tag_path, std::string sound_tag_path, MedalSequence &sequence) 
+          : m_name(name), m_width(width), m_height(height), m_fps(fps), m_bitmap_tag_path(bitmap_tag_path), m_sound_tag_path(sound_tag_path), m_sequence(&sequence) {
+            reload_bitmap_tag();            
         }
     };
 }

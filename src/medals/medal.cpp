@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include <balltze/engine/user_interface.hpp>
+#include <balltze/engine/tag.hpp>
 #include "../logger.hpp"
 #include "medal.hpp"
 
@@ -90,10 +91,10 @@ namespace Raccoon::Medals {
         };
 
         Engine::Point2D points[4] = {
-            {rect.left, rect.top},
-            {rect.right, rect.top},
-            {rect.right, rect.bottom},
-            {rect.left, rect.bottom}
+            {static_cast<float>(rect.left), static_cast<float>(rect.top)},
+            {static_cast<float>(rect.right), static_cast<float>(rect.top)},
+            {static_cast<float>(rect.right), static_cast<float>(rect.bottom)},
+            {static_cast<float>(rect.left), static_cast<float>(rect.bottom)}
         };
 
         for(auto &point : points) {
@@ -113,12 +114,8 @@ namespace Raccoon::Medals {
         }
     }
 
-    MedalState Medal::draw(Engine::Point2D offset) noexcept {
-        if(!m_creation_time.has_value()) {
-            m_creation_time = std::chrono::steady_clock::now();
-        }
-
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - *m_creation_time);
+    MedalState Medal::draw(Engine::Point2D offset, std::optional<TimePoint> creation_time) noexcept {
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - *creation_time);
         auto state = m_sequence->get_state_at(elapsed);
         Engine::Rectangle2D draw_rect;
         draw_rect.left = state.position.x + offset.x - (m_width * (state.scale - 1.0)) / 2;
@@ -137,7 +134,12 @@ namespace Raccoon::Medals {
 
         auto color_mask = state.color_mask;
 
-        Engine::draw_bitmap_in_rect(m_bitmap, draw_rect, color_mask);
+        std::uint8_t frame = 0;
+        if(m_fps > 0) {
+            frame = round(elapsed.count() / (1000 / m_fps) % m_bitmaps.size());
+        }
+
+        Engine::draw_bitmap_in_rect(m_bitmaps[frame], draw_rect, color_mask);
 
         return state;
     }
@@ -154,23 +156,29 @@ namespace Raccoon::Medals {
         return m_height;
     }
 
-    BitmapData *Medal::bitmap() noexcept {
-        return m_bitmap;
+    std::string Medal::sound_tag_path() noexcept {
+        return m_sound_tag_path;
     }
 
-    Engine::TagHandle Medal::sound_tag() noexcept {
-        return m_sound_tag;
-    }
-
-    MedalState &Medal::state() noexcept {
-        return m_state;
-    }
-
-    TimePoint Medal::creation_time() noexcept {
-        return *m_creation_time;
+    std::string Medal::bitmap_tag_path() noexcept {
+        return m_bitmap_tag_path;
     }
 
     MedalSequence const *Medal::sequence() noexcept {
         return m_sequence;
+    }
+
+    void Medal::reload_bitmap_tag() {
+        auto *bitmap_tag = Engine::get_tag(m_bitmap_tag_path, Engine::TAG_CLASS_BITMAP);
+        if(!bitmap_tag) {
+            throw std::runtime_error("Bitmap tag not found");
+        }
+
+        auto *bitmap = reinterpret_cast<Engine::TagDefinitions::Bitmap *>(bitmap_tag->data);
+        m_bitmaps.clear();
+        for(std::size_t i = 0; i < bitmap->bitmap_data.count; i++) {
+            Balltze::Engine::load_bitmap_data_texture(bitmap->bitmap_data.elements + i, true, true);
+            m_bitmaps.push_back(bitmap->bitmap_data.elements + i);
+        }
     }
 }
