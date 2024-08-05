@@ -3,6 +3,7 @@
 #include <balltze/command.hpp>
 #include <balltze/plugin.hpp>
 #include <balltze/events/map_load.hpp>
+#include <balltze/events/netgame.hpp>
 #include <balltze/features/tags_handling.hpp>
 #include <balltze/engine/tag_definitions/tag_collection.hpp>
 #include "../logger.hpp"
@@ -124,7 +125,176 @@ namespace Raccoon::Medals {
     }
 
     void set_up_h4_medals() {
-        static H4RenderQueue render_queue(6);    
+        using PlayerHandle = Balltze::Engine::PlayerHandle;
+        using TimePoint = std::chrono::steady_clock::time_point;
+
+        static H4RenderQueue render_queue(6);
+        static std::size_t killing_spree_count = 0;
+        static std::size_t dying_spree_count = 0;
+        static std::size_t deaths_count = 0;
+        static std::map<PlayerHandle, std::optional<std::size_t>> multikill_counts;
+        static std::map<PlayerHandle, std::optional<TimePoint>> multikill_timestamps;
+        static std::optional<TimePoint> last_death_timestamp;
+        static PlayerHandle last_killed_by = PlayerHandle::null();
+        static std::string last_medal;
+
+        auto show_medal = [](std::string name) {
+            render_queue.show_medal(name);
+            last_medal = name;
+        };
+
+        Balltze::Event::NetworkGameHudMessageEvent::subscribe([&show_medal](Balltze::Event::NetworkGameHudMessageEvent &event) {
+            if(event.time == Balltze::Event::EVENT_TIME_BEFORE) {
+                auto [message_type, causer, victim, local_player] = event.context;
+                if(message_type == Balltze::Engine::HUD_MESSAGE_LOCAL_KILLED_PLAYER) {
+                    if(causer == local_player) {
+                        killing_spree_count++;
+                        dying_spree_count = 0;
+
+                        if(last_medal != "kill") {
+                            show_medal("kill");
+                        }
+
+                        switch(killing_spree_count) {
+                            case 5:
+                                show_medal("killing_spree");
+                                break;
+                            case 10:
+                                show_medal("killing_frenzy");
+                                break;
+                            case 15:
+                                show_medal("running_riot");
+                                break;
+                            case 20:
+                                show_medal("rampage");
+                                break;
+                            case 25:
+                                show_medal("untouchable");
+                                break;
+                            case 30:
+                                show_medal("invincible");
+                                break;
+                            case 35:
+                                show_medal("inconceivable");
+                                break;
+                            case 40:
+                                show_medal("unfriggenbelievable");
+                                break;
+                        }
+
+                        if(multikill_timestamps.find(local_player) == multikill_timestamps.end() || !multikill_timestamps[local_player]) {
+                            multikill_timestamps[local_player] = std::chrono::steady_clock::now();
+                            multikill_counts[local_player] = 1;
+                        }
+                        else {
+                            multikill_counts[local_player].value()++;
+
+                            auto now = std::chrono::steady_clock::now();
+                            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - *multikill_timestamps[local_player]).count();
+                            if(elapsed < 4500 && multikill_counts[local_player] <= 10) {
+                                switch(*multikill_counts[local_player]) {
+                                    case 2:
+                                        show_medal("double_kill");
+                                        break;
+                                    case 3:
+                                        show_medal("triple_kill");
+                                        break;
+                                    case 4:
+                                        show_medal("overkill");
+                                        break;
+                                    case 5:
+                                        show_medal("killtacular");
+                                        break;
+                                    case 6:
+                                        show_medal("killtrocity");
+                                        break;
+                                    case 7:
+                                        show_medal("killamanjaro");
+                                        break;
+                                    case 8:
+                                        show_medal("killtastrophe");
+                                        break;
+                                    case 9:
+                                        show_medal("killpocalypse");
+                                        break;
+                                    case 10:
+                                        show_medal("killionaire");
+                                        break;
+                                }
+                            }
+                            else {
+                                multikill_counts[local_player] = 1;
+                            }
+
+                            multikill_timestamps[local_player] = now;
+                        }
+                    }
+                    else {
+                        if(multikill_timestamps.find(causer) == multikill_timestamps.end() || !multikill_timestamps[causer]) {
+                            multikill_counts[causer] = 1;
+                        }
+                        else {
+                            multikill_counts[causer].value()++;
+                        }
+                        multikill_timestamps[causer] = std::chrono::steady_clock::now();
+                    }
+
+                    if(multikill_timestamps.find(victim) != multikill_timestamps.end() && multikill_timestamps[victim]) {
+                        auto now = std::chrono::steady_clock::now();
+                        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - *multikill_timestamps[victim]).count();
+                        if(elapsed <= 700 && victim != local_player) {
+                            show_medal("avenger");
+                        }
+
+                        if(multikill_counts[victim] >= 5) {
+                            show_medal("killjoy");
+                        }
+                    }
+
+                    if(last_death_timestamp) {
+                        auto now = std::chrono::steady_clock::now();
+                        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - *last_death_timestamp).count();
+                        if(elapsed <= 3000) {
+                            show_medal("from_the_grave");
+                        }
+                    }
+
+                    if(!last_killed_by.is_null() && last_killed_by == victim) {
+                        render_queue.show_medal("revenge");
+                        last_killed_by = PlayerHandle::null();
+                    }
+
+                    if(local_player == victim) {
+                        killing_spree_count = 0;
+                        dying_spree_count++;
+                        deaths_count++;
+                        last_death_timestamp = std::chrono::steady_clock::now();
+                        last_killed_by = causer;
+                    }
+                    
+                    multikill_counts[victim] = 0;
+                    multikill_timestamps[victim] = std::nullopt;
+                }
+
+                if(message_type == Balltze::Engine::HUD_MESSAGE_SUICIDE) {
+                    if(local_player == victim) {
+                        killing_spree_count = 0;
+                        dying_spree_count++;
+                        deaths_count++;
+                        last_death_timestamp = std::nullopt;
+                        last_killed_by = PlayerHandle::null();
+                    }
+                    else {
+                        multikill_counts[victim] = 0;
+                        multikill_timestamps[victim] = std::nullopt;
+                    }
+                }
+
+                if(message_type == Balltze::Engine::HUD_MESSAGE_LOCAL_CTF_SCORE) {
+                    render_queue.show_medal("flag_capture");
+                }
+            }
+        });
 
         Balltze::register_command("show_medals", "medals", "", {}, +[](int argc, const char **argv) -> bool {
             int amount = std::stoi(argv[0]);
