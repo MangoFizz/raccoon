@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include <balltze/events/map_load.hpp>
 #include <balltze/command.hpp>
+#include <balltze/plugin.hpp>
+#include <balltze/events/map_load.hpp>
 #include <balltze/features/tags_handling.hpp>
+#include <balltze/engine/tag_definitions/tag_collection.hpp>
 #include "../logger.hpp"
 #include "render_queue.hpp"
 
@@ -67,38 +69,7 @@ namespace Raccoon::Medals {
     }
 
     void H4RenderQueue::load_medals() noexcept {
-        static std::vector<std::string> bitmaps = {
-            "medals\\h4\\avenger",
-            "medals\\h4\\comeback_kill",
-            "medals\\h4\\double_kill",
-            "medals\\h4\\extermination",
-            "medals\\h4\\flag_capture",
-            "medals\\h4\\flag_champion",
-            "medals\\h4\\flag_runner",
-            "medals\\h4\\from_the_grave",
-            "medals\\h4\\h4glowsprite",
-            "medals\\h4\\h4glowsprite",
-            "medals\\h4\\headshot",
-            "medals\\h4\\inconceivable",
-            "medals\\h4\\invincible",
-            "medals\\h4\\kill",
-            "medals\\h4\\killimanjaro",
-            "medals\\h4\\killing_frenzy",
-            "medals\\h4\\killing_spree",
-            "medals\\h4\\killionaire",
-            "medals\\h4\\killjoy",
-            "medals\\h4\\killpocalypse",
-            "medals\\h4\\killtacular",
-            "medals\\h4\\killtastrophe",
-            "medals\\h4\\killtrocity",
-            "medals\\h4\\overkill",
-            "medals\\h4\\rampage",
-            "medals\\h4\\revenge",
-            "medals\\h4\\running_riot",
-            "medals\\h4\\triple_kill",
-            "medals\\h4\\unfriggenbelievable",
-            "medals\\h4\\untouchable"
-        };
+        constexpr const char *h4_medals_tag_collection = "raccoon\\medals\\h4";
 
         auto linear_curve = Math::QuadraticBezier::linear();
         auto flat_curve = Math::QuadraticBezier::flat();
@@ -121,22 +92,27 @@ namespace Raccoon::Medals {
 
         m_map_load_event_listener = MapLoadEvent::subscribe([this](const Balltze::Event::MapLoadEvent &event) {
             if(event.time == Balltze::Event::EVENT_TIME_BEFORE) {
-                for(const auto &path : bitmaps) {
-                    Balltze::Features::import_tag_from_map(std::filesystem::path("maps/ui.map"), path, Balltze::Engine::TAG_CLASS_BITMAP);
-                }
+                auto path = Balltze::get_plugin_path() / "raccoon.map";
+                Balltze::Features::import_tag_from_map(path, h4_medals_tag_collection, Balltze::Engine::TAG_CLASS_TAG_COLLECTION);
             }
             else {
                 if(m_medals.empty()) {
-                    for(auto &path : bitmaps) {
-                        std::string name = path.substr(path.find_last_of("\\") + 1);
-                        
-                        logger.debug("Found H4 medal bitmap: {}", name);
+                    auto *collection_tag = Engine::get_tag(h4_medals_tag_collection, Engine::TAG_CLASS_TAG_COLLECTION);
+                    auto *collection_data = reinterpret_cast<Engine::TagDefinitions::TagCollection *>(collection_tag->data);
+                    for(std::size_t i = 0; i < collection_data->tags.count; i++) {
+                        auto &tag_ref = collection_data->tags.elements[i].reference;
+                        if(tag_ref.tag_class == Engine::TAG_CLASS_BITMAP) {
+                            std::string path = tag_ref.path;
+                            std::string name = path.substr(path.find_last_of("\\") + 1);
 
-                        if(name == "h4glowsprite") {
-                            m_glow_sprite = std::make_unique<Medal>(name, 30, 30, 30, path, "", m_glow_sequence);
-                        }
-                        else {
-                            add_medal(Medal(name, 30, 30, path, "", m_medals_sequence));
+                            logger.debug("Found H4 medal bitmap: {}", name);
+
+                            if(name == "glow") {
+                                m_glow_sprite = std::make_unique<Medal>(name, 30, 30, 30, path, "", m_glow_sequence);
+                            }
+                            else {
+                                add_medal(Medal(name, 30, 30, path, "", m_medals_sequence));
+                            }
                         }
                     }
                 }
