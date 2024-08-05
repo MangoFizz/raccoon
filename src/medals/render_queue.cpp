@@ -104,9 +104,6 @@ namespace Raccoon::Medals {
                         if(tag_ref.tag_class == Engine::TAG_CLASS_BITMAP) {
                             std::string path = tag_ref.path;
                             std::string name = path.substr(path.find_last_of("\\") + 1);
-
-                            logger.debug("Found H4 medal bitmap: {}", name);
-
                             if(name == "glow") {
                                 m_glow_sprite = std::make_unique<Medal>(name, 30, 30, 30, path, "", m_glow_sequence);
                             }
