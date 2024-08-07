@@ -200,6 +200,46 @@ namespace Raccoon::Medals {
                 render();
             }
         });
+
+        m_tick_event_listener = TickEvent::subscribe([this](TickEvent &event) {
+            if(event.time == Event::EVENT_TIME_AFTER) {
+                if(m_current_playing_sound_start) {
+                    if(m_current_playing_sound_duration) {
+                        auto now = std::chrono::steady_clock::now();
+                        auto current_playing_sound_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - *m_current_playing_sound_start).count();
+                        if(current_playing_sound_elapsed >= m_current_playing_sound_duration && !m_sound_queue.empty()) {
+                            m_sound_queue.pop();
+                            m_current_playing_sound_start = std::nullopt;
+                            m_current_playing_sound = nullptr;
+                        }
+                    }
+                }
+                else {
+                    if(!m_sound_queue.empty()) {
+                        auto *sound_tag = Engine::get_tag(m_sound_queue.front(), Engine::TAG_CLASS_SOUND);
+                        if(sound_tag) {
+                            m_current_playing_sound_start = std::chrono::steady_clock::now();
+                            Engine::play_sound(sound_tag->handle);
+                            m_current_playing_sound = reinterpret_cast<Engine::TagDefinitions::Sound *>(sound_tag->data);
+                        }
+                        else {
+                            logger.debug("Medal sound tag not found: {}", m_sound_queue.front());
+                            m_sound_queue.pop();
+                        }
+                    }
+                }
+            }
+        });
+
+        m_sound_playback_event_listener = SoundPlaybackEvent::subscribe([this](const SoundPlaybackEvent &event) {
+            if(event.time == Event::EVENT_TIME_AFTER && !event.cancelled()) {
+                auto &[sound, permutation] = event.context;
+                if(!m_current_playing_sound_duration && m_current_playing_sound && m_current_playing_sound == sound) {
+                    auto duration = Engine::get_sound_permutation_samples_duration(permutation);
+                    m_current_playing_sound_duration = duration.count();
+                }
+            }
+        }, Event::EVENT_PRIORITY_HIGHEST);
     }
 
     RenderQueue::~RenderQueue() noexcept {

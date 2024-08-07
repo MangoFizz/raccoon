@@ -12,6 +12,8 @@ namespace Raccoon::Medals {
     using TimePoint = std::chrono::steady_clock::time_point;
     using HudChatEvent = Balltze::Event::NetworkGameHudMessageEvent;
     using HudChatEventListenerHandle = Balltze::Event::EventListenerHandle<HudChatEvent>;
+    using MultiplayerSoundEvent = Balltze::Event::NetworkGameMultiplayerSoundEvent;
+    using MultiplayerSoundEventListenerHandle = Balltze::Event::EventListenerHandle<MultiplayerSoundEvent>;
 
     class H4RenderQueue : public RenderQueue {
     private:
@@ -51,6 +53,7 @@ namespace Raccoon::Medals {
         /** Event listeners */
         HudChatEventListenerHandle m_handle_multiplayer_events_listener;
         MapLoadEventListenerHandle m_map_load_event_listener;
+        MultiplayerSoundEventListenerHandle m_multiplayer_sound_event_listener;
 
         void set_up_event_listeners() noexcept;
 

@@ -2,9 +2,11 @@
 
 #include <balltze/command.hpp>
 #include <balltze/engine/tag_definitions/tag_collection.hpp>
+#include <balltze/engine/tag_definitions/sound.hpp>
 #include <balltze/engine/tag.hpp>
 #include <balltze/features/tags_handling.hpp>
 #include "../resources/resources.hpp"
+#include "../logger.hpp"
 #include "h4.hpp"
 
 using namespace Balltze;
@@ -16,7 +18,8 @@ namespace Raccoon::Medals {
         auto now = std::chrono::steady_clock::now();
         
         for(std::size_t i = m_renders.size(); i < m_max_renders && !m_queue.empty(); i++) {
-            m_renders.push_front({ now, m_queue.front() });
+            auto &[time, medal] = m_renders.emplace_back(std::make_pair(now, m_queue.front()));
+            m_sound_queue.push(medal->sound_tag_path());
             m_queue.pop();
             m_last_pushed_medal = now;
         }
@@ -102,7 +105,7 @@ namespace Raccoon::Medals {
                         m_glow_sprite = std::make_unique<Medal>(name, 30, 30, 30, path, "", m_glow_sequence);
                     }
                     else {
-                        add_medal(Medal(name, 30, 30, path, "", m_medals_sequence));
+                        add_medal(Medal(name, 30, 30, path, "raccoon\\medals\\h4\\sounds\\" + name, m_medals_sequence));
                     }
                 }
             }
@@ -118,6 +121,11 @@ namespace Raccoon::Medals {
     void H4Medals::set_up_event_listeners() noexcept {
         m_handle_multiplayer_events_listener = Event::NetworkGameHudMessageEvent::subscribe([this](Event::NetworkGameHudMessageEvent &event) {
             if(event.time == Event::EVENT_TIME_BEFORE) {
+                auto show_medal = [this, &event](std::string name) {
+                    m_render_queue.show_medal(name);
+                    event.cancel();
+                };
+
                 auto [message_type, causer, victim, local_player] = event.context;
                 if(message_type == Engine::HUD_MESSAGE_LOCAL_KILLED_PLAYER) {
                     if(causer == local_player) {
@@ -265,6 +273,19 @@ namespace Raccoon::Medals {
 
                 if(message_type == Engine::HUD_MESSAGE_LOCAL_CTF_SCORE) {
                     show_medal("flag_capture");
+                }
+            }
+        });
+
+        m_multiplayer_sound_event_listener = MultiplayerSoundEvent::subscribe([](MultiplayerSoundEvent &event) {
+            if(event.time == Event::EVENT_TIME_BEFORE) {
+                switch(event.context.sound) {
+                    case Engine::MULTIPLAYER_SOUND_DOUBLE_KILL:
+                    case Engine::MULTIPLAYER_SOUND_TRIPLE_KILL:
+                    case Engine::MULTIPLAYER_SOUND_KILLTACULAR:
+                    case Engine::MULTIPLAYER_SOUND_RUNNING_RIOT:
+                    case Engine::MULTIPLAYER_SOUND_KILLING_SPREE:
+                        event.cancel();
                 }
             }
         });

@@ -18,11 +18,15 @@
 namespace Raccoon::Medals {
     namespace Engine = Balltze::Engine;
     namespace Math = Balltze::Math;
-    
+
     using TimePoint = std::chrono::steady_clock::time_point;
     using BitmapData = Engine::TagDefinitions::BitmapData;
     using UIRenderEvent = Balltze::Event::UIRenderEvent;
     using UIRenderEventListenerHandle = Balltze::Event::EventListenerHandle<UIRenderEvent>;
+    using TickEvent = Balltze::Event::TickEvent;
+    using TickEventListenerHandle = Balltze::Event::EventListenerHandle<TickEvent>;
+    using SoundPlaybackEvent = Balltze::Event::SoundPlaybackEvent;
+    using SoundPlaybackEventListenerHandle = Balltze::Event::EventListenerHandle<SoundPlaybackEvent>;
 
     struct MedalState {
         Engine::Point2D position = {0.0f, 0.0f};
@@ -100,7 +104,13 @@ namespace Raccoon::Medals {
         std::deque<std::pair<TimePoint, Medal *>> m_renders;
         std::queue<Medal *> m_queue;
         std::vector<Medal> m_medals;
+        std::optional<std::chrono::steady_clock::time_point> m_current_playing_sound_start;
+        std::optional<std::size_t> m_current_playing_sound_duration;
+        Engine::TagDefinitions::Sound *m_current_playing_sound = nullptr;
+        std::queue<std::string> m_sound_queue;
         UIRenderEventListenerHandle m_render_event_listener;
+        TickEventListenerHandle m_tick_event_listener;
+        SoundPlaybackEventListenerHandle m_sound_playback_event_listener;
 
         virtual void render() noexcept = 0;
 
