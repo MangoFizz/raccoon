@@ -3,7 +3,9 @@
 #include <balltze/engine/user_interface.hpp>
 #include <balltze/engine/tag.hpp>
 #include "../logger.hpp"
-#include "medal.hpp"
+#include "base.hpp"
+
+using namespace Balltze;
 
 namespace Raccoon::Medals {
     long MedalSequence::duration() noexcept {
@@ -180,5 +182,40 @@ namespace Raccoon::Medals {
             Balltze::Engine::load_bitmap_data_texture(bitmap->bitmap_data.elements + i, true, true);
             m_bitmaps.push_back(bitmap->bitmap_data.elements + i);
         }
+    }
+
+    Medal *RenderQueue::get_medal(std::string name) noexcept {
+        for(auto &medal : m_medals) {
+            if(medal.name() == name) {
+                return &medal;
+            }
+        }
+        return nullptr;
+    }
+
+    RenderQueue::RenderQueue(std::size_t max_renders) noexcept
+        : m_max_renders(max_renders) {
+        m_render_event_listener = UIRenderEvent::subscribe([this](const UIRenderEvent &event) {
+            if(event.time == Event::EVENT_TIME_BEFORE) {
+                render();
+            }
+        });
+    }
+
+    RenderQueue::~RenderQueue() noexcept {
+        m_render_event_listener.remove();
+    }
+
+    void RenderQueue::add_medal(Medal medal) noexcept {
+        m_medals.push_back(medal);
+    }
+
+    void RenderQueue::show_medal(std::string name) {
+        auto *medal = get_medal(name);
+        if(!medal) {
+            logger.debug("Medal not found: {}", name);
+            return;
+        }
+        m_queue.push(medal);
     }
 }

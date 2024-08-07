@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-#ifndef RACCOON__MEDALS__MEDALS_HPP
-#define RACCOON__MEDALS__MEDALS_HPP
+#ifndef RACCOON__MEDALS__BASE_HPP
+#define RACCOON__MEDALS__BASE_HPP
 
 #include <map>
 #include <chrono>
+#include <queue>
 #include <deque>
 #include <optional>
 #include <cstdint>
+#include <balltze/events/render.hpp>
 #include <balltze/math.hpp>
 #include <balltze/engine/data_types.hpp>
 #include <balltze/engine/tag_definitions/bitmap.hpp>
@@ -16,8 +18,11 @@
 namespace Raccoon::Medals {
     namespace Engine = Balltze::Engine;
     namespace Math = Balltze::Math;
+    
     using TimePoint = std::chrono::steady_clock::time_point;
     using BitmapData = Engine::TagDefinitions::BitmapData;
+    using UIRenderEvent = Balltze::Event::UIRenderEvent;
+    using UIRenderEventListenerHandle = Balltze::Event::EventListenerHandle<UIRenderEvent>;
 
     struct MedalState {
         Engine::Point2D position = {0.0f, 0.0f};
@@ -87,6 +92,24 @@ namespace Raccoon::Medals {
           : m_name(name), m_width(width), m_height(height), m_fps(fps), m_bitmap_tag_path(bitmap_tag_path), m_sound_tag_path(sound_tag_path), m_sequence(&sequence) {
             reload_bitmap_tag();            
         }
+    };
+
+    class RenderQueue {
+    protected:
+        std::size_t m_max_renders;
+        std::deque<std::pair<TimePoint, Medal *>> m_renders;
+        std::queue<Medal *> m_queue;
+        std::vector<Medal> m_medals;
+        UIRenderEventListenerHandle m_render_event_listener;
+
+        virtual void render() noexcept = 0;
+
+    public:
+        RenderQueue(std::size_t max_renders) noexcept;
+        ~RenderQueue() noexcept;
+        Medal *get_medal(std::string name) noexcept;
+        void add_medal(Medal medal) noexcept;
+        void show_medal(std::string name);
     };
 }
 

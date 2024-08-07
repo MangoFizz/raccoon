@@ -3,12 +3,9 @@
 #include <balltze/logger.hpp>
 #include <balltze/plugin.hpp>
 #include "postprocess/postprocess.hpp"
+#include "medals/medals.hpp"
 
 namespace Raccoon {
-    namespace Medals {
-        void set_up_h4_medals();
-    }
-
     Balltze::Logger logger("Raccoon");
 }
 
