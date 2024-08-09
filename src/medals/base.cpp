@@ -116,7 +116,12 @@ namespace Raccoon::Medals {
         }
     }
 
-    MedalState Medal::draw(Engine::Point2D offset, std::optional<TimePoint> creation_time) noexcept {
+    MedalState Medal::draw(Engine::Point2D offset, std::optional<TimePoint> creation_time) const noexcept {
+        if(m_bitmaps.empty()) {
+            logger.debug("No bitmaps loaded for medal {}", m_name);
+            return { .sequence_finished = true };
+        }
+
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - *creation_time);
         auto state = m_sequence->get_state_at(elapsed);
         Engine::Rectangle2D draw_rect;
@@ -146,116 +151,108 @@ namespace Raccoon::Medals {
         return state;
     }
 
-    std::string &Medal::name() noexcept {
+    const std::string &Medal::name() const noexcept {
         return m_name;
     }
 
-    std::uint16_t Medal::width() noexcept {
+    std::uint16_t Medal::width() const noexcept {
         return m_width;
     }
 
-    std::uint16_t Medal::height() noexcept {
+    std::uint16_t Medal::height() const noexcept {
         return m_height;
     }
 
-    std::string Medal::sound_tag_path() noexcept {
+    std::optional<std::string> Medal::sound_tag_path() const noexcept {
         return m_sound_tag_path;
     }
 
-    std::string Medal::bitmap_tag_path() noexcept {
+    std::string Medal::bitmap_tag_path() const noexcept {
         return m_bitmap_tag_path;
     }
 
-    MedalSequence const *Medal::sequence() noexcept {
+    const MedalSequence *Medal::sequence() const noexcept {
         return m_sequence;
     }
 
-    void Medal::reload_bitmap_tag() {
+    void Medal::reload_bitmap_tag() noexcept {
         auto *bitmap_tag = Engine::get_tag(m_bitmap_tag_path, Engine::TAG_CLASS_BITMAP);
         if(!bitmap_tag) {
-            throw std::runtime_error("Bitmap tag not found");
+            return;
         }
-
         auto *bitmap = reinterpret_cast<Engine::TagDefinitions::Bitmap *>(bitmap_tag->data);
         m_bitmaps.clear();
         for(std::size_t i = 0; i < bitmap->bitmap_data.count; i++) {
-            Balltze::Engine::load_bitmap_data_texture(bitmap->bitmap_data.elements + i, true, true);
+            Engine::load_bitmap_data_texture(bitmap->bitmap_data.elements + i, true, true);
             m_bitmaps.push_back(bitmap->bitmap_data.elements + i);
         }
     }
 
-    Medal *RenderQueue::get_medal(std::string name) noexcept {
-        for(auto &medal : m_medals) {
-            if(medal.name() == name) {
-                return &medal;
-            }
-        }
-        return nullptr;
-    }
-
-    RenderQueue::RenderQueue(std::size_t max_renders) noexcept
-        : m_max_renders(max_renders) {
-        m_render_event_listener = UIRenderEvent::subscribe([this](const UIRenderEvent &event) {
-            if(event.time == Event::EVENT_TIME_BEFORE) {
-                render();
-            }
-        });
-
-        m_tick_event_listener = TickEvent::subscribe([this](TickEvent &event) {
+    SoundPlaybackQueue::SoundPlaybackQueue() noexcept {
+        m_tick_event_listener = Event::TickEvent::subscribe_const([this](const auto &event) {
             if(event.time == Event::EVENT_TIME_AFTER) {
                 if(m_current_playing_sound_start) {
                     if(m_current_playing_sound_duration) {
                         auto now = std::chrono::steady_clock::now();
                         auto current_playing_sound_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - *m_current_playing_sound_start).count();
-                        if(current_playing_sound_elapsed >= m_current_playing_sound_duration && !m_sound_queue.empty()) {
-                            m_sound_queue.pop();
+                        if(current_playing_sound_elapsed >= *m_current_playing_sound_duration && !m_queue.empty()) {
+                            m_queue.pop();
                             m_current_playing_sound_start = std::nullopt;
                             m_current_playing_sound = nullptr;
                         }
                     }
                 }
                 else {
-                    if(!m_sound_queue.empty()) {
-                        auto *sound_tag = Engine::get_tag(m_sound_queue.front(), Engine::TAG_CLASS_SOUND);
+                    if(!m_queue.empty()) {
+                        auto *sound_tag = Engine::get_tag(m_queue.front(), Engine::TAG_CLASS_SOUND);
                         if(sound_tag) {
                             m_current_playing_sound_start = std::chrono::steady_clock::now();
                             Engine::play_sound(sound_tag->handle);
                             m_current_playing_sound = reinterpret_cast<Engine::TagDefinitions::Sound *>(sound_tag->data);
                         }
                         else {
-                            logger.debug("Medal sound tag not found: {}", m_sound_queue.front());
-                            m_sound_queue.pop();
+                            m_queue.pop();
                         }
                     }
                 }
             }
         });
 
-        m_sound_playback_event_listener = SoundPlaybackEvent::subscribe([this](const SoundPlaybackEvent &event) {
+        m_sound_playback_event_listener = Event::SoundPlaybackEvent::subscribe_const([this](const auto &event) {
             if(event.time == Event::EVENT_TIME_AFTER && !event.cancelled()) {
                 auto &[sound, permutation] = event.context;
                 if(!m_current_playing_sound_duration && m_current_playing_sound && m_current_playing_sound == sound) {
                     auto duration = Engine::get_sound_permutation_samples_duration(permutation);
                     m_current_playing_sound_duration = duration.count();
+                    logger.debug("Sound duration: {}", *m_current_playing_sound_duration);
                 }
             }
         }, Event::EVENT_PRIORITY_HIGHEST);
+    }
+
+    SoundPlaybackQueue::~SoundPlaybackQueue() noexcept {
+        m_tick_event_listener.remove();
+        m_sound_playback_event_listener.remove();
+    }
+
+    void SoundPlaybackQueue::enqueue_sound(std::string sound_tag_path) noexcept {
+        m_queue.push(sound_tag_path);
+    }
+
+    RenderQueue::RenderQueue(std::size_t max_renders) noexcept
+        : m_max_renders(max_renders) {
+        m_render_event_listener = Event::UIRenderEvent::subscribe_const([this](const auto &event) {
+            if(event.time == Event::EVENT_TIME_BEFORE) {
+                render();
+            }
+        });
     }
 
     RenderQueue::~RenderQueue() noexcept {
         m_render_event_listener.remove();
     }
 
-    void RenderQueue::add_medal(Medal medal) noexcept {
-        m_medals.push_back(medal);
-    }
-
-    void RenderQueue::show_medal(std::string name) {
-        auto *medal = get_medal(name);
-        if(!medal) {
-            logger.debug("Medal not found: {}", name);
-            return;
-        }
+    void RenderQueue::show_medal(const Medal *medal) noexcept {
         m_queue.push(medal);
     }
 }

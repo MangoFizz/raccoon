@@ -13,6 +13,7 @@ add_library(raccoon MODULE
     src/postprocess/shaders.rc
     src/medals/base.cpp
     src/medals/h4.cpp
+    src/medals/medals.cpp
     src/resources/resources.cpp
     src/main.cpp
 )
