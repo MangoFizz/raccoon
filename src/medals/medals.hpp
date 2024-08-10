@@ -3,7 +3,7 @@
 #ifndef RACCOON__MEDALS__MEDALS_HPP
 #define RACCOON__MEDALS__MEDALS_HPP
 
-#include "base.hpp"
+#include "queue.hpp"
 
 namespace Raccoon::Medals {
     enum MedalsStyle {
@@ -45,7 +45,8 @@ namespace Raccoon::Medals {
     public:
         Medal *get_medal(std::string name) noexcept;
         void add_medal(Medal medal) noexcept;
-        void show_medal(std::string name) noexcept;
+        void show_medal(std::string name, std::optional<Engine::PlayerHandle> player = {}) noexcept;
+        void show_medal(Medal *medal, std::optional<Engine::PlayerHandle> player = {});
         MedalsStyle get_style() const noexcept;
         void set_style(MedalsStyle style) noexcept;
         MedalsHandler() noexcept;

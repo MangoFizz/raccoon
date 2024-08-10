@@ -3,7 +3,7 @@
 #include <balltze/engine/user_interface.hpp>
 #include <balltze/engine/tag.hpp>
 #include "../logger.hpp"
-#include "base.hpp"
+#include "queue.hpp"
 
 using namespace Balltze;
 
@@ -224,7 +224,6 @@ namespace Raccoon::Medals {
                 if(!m_current_playing_sound_duration && m_current_playing_sound && m_current_playing_sound == sound) {
                     auto duration = Engine::get_sound_permutation_samples_duration(permutation);
                     m_current_playing_sound_duration = duration.count();
-                    logger.debug("Sound duration: {}", *m_current_playing_sound_duration);
                 }
             }
         }, Event::EVENT_PRIORITY_HIGHEST);
@@ -246,10 +245,18 @@ namespace Raccoon::Medals {
                 render();
             }
         });
+
+        m_map_load_event_listener = Event::MapLoadEvent::subscribe([this](const auto &event) {
+            if(event.time == Event::EVENT_TIME_AFTER) {
+                m_queue = {};
+                m_renders = {};
+            }
+        });
     }
 
     RenderQueue::~RenderQueue() noexcept {
         m_render_event_listener.remove();
+        m_map_load_event_listener.remove();
     }
 
     void RenderQueue::show_medal(const Medal *medal) noexcept {

@@ -13,11 +13,12 @@ namespace Raccoon {
 
     void set_up_tags_loader() {
         Balltze::Event::MapLoadEvent::subscribe([](auto &event) {
+            logger.info("Importing tags...");
             if(event.time == Balltze::Event::EVENT_TIME_BEFORE) {
                 auto path = Balltze::get_plugin_path() / "raccoon.map";
                 Balltze::Features::import_tag_from_map(path, "raccoon\\raccoon", Balltze::Engine::TAG_CLASS_TAG_COLLECTION);
             }
-        }, Balltze::Event::EVENT_PRIORITY_LOWEST);
+        });
     }
 }
 

@@ -8,12 +8,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(balltze-lib/balltze.cmake)
 
-add_library(raccoon MODULE
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
+add_definitions(-DRACCOON_EXPORTS)
+
+add_library(raccoon SHARED
     src/postprocess/pixelate_filter.cpp
     src/postprocess/shaders.rc
-    src/medals/base.cpp
     src/medals/h4.cpp
     src/medals/medals.cpp
+    src/medals/queue.cpp
     src/resources/resources.cpp
     src/main.cpp
 )

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+#include <list>
 #include <balltze/api.hpp>
 #include <balltze/plugin.hpp>
 #include <balltze/command.hpp>
@@ -8,7 +9,12 @@
 #include "h4.hpp"
 #include "medals.hpp"
 
-namespace Raccoon::Medals {
+
+namespace Raccoon::Medals {    
+#include <balltze/helpers/event_base.inl>
+
+    template class EventHandler<MedalEvent>;
+
     static double milliseconds_since(std::chrono::steady_clock::time_point time) {
         auto now = std::chrono::steady_clock::now();
         return std::chrono::duration_cast<std::chrono::milliseconds>(now - time).count();
@@ -72,7 +78,7 @@ namespace Raccoon::Medals {
                     multikill_spree.push_back({ .player = victim_handle, .timestamp = now });
 
                     if(multikill_spree.size() > 1) {
-                        auto last_kill = multikill_spree.back();
+                        auto last_kill = multikill_spree[multikill_spree.size() - 2];
                         auto elapsed = milliseconds_since(*last_kill.timestamp);
                         
                         if(elapsed < 4500 && multikill_spree.size() <= 10) {
@@ -240,19 +246,31 @@ namespace Raccoon::Medals {
         m_medals.push_back(medal);
     }
 
-    void MedalsHandler::show_medal(std::string name) noexcept {
-        m_last_medal = name;
+    void MedalsHandler::show_medal(std::string name, std::optional<Engine::PlayerHandle> player) noexcept {
         auto *medal = get_medal(name);
         if(medal) {
-            if(m_render_queue) {
-                m_render_queue->show_medal(medal);
-            }
-
-            auto sound = medal->sound_tag_path();
-            if(sound) {
-                m_sound_queue.enqueue_sound(*sound);
-            }
+            show_medal(medal, player);
         }
+    }
+
+    void MedalsHandler::show_medal(Medal *medal, std::optional<Engine::PlayerHandle> player) {
+        m_last_medal = medal->name();
+
+        MedalEventContext context = { .medal = medal, .player = player.value_or(Engine::PlayerHandle::null()) };
+        MedalEvent event(EVENT_TIME_BEFORE, context);
+        event.dispatch();
+
+        if(m_render_queue) {
+            m_render_queue->show_medal(medal);
+        }
+
+        auto sound = medal->sound_tag_path();
+        if(sound) {
+            m_sound_queue.enqueue_sound(*sound);
+        }
+
+        MedalEvent after_event(EVENT_TIME_AFTER, context);
+        after_event.dispatch();
     }
 
     MedalsStyle MedalsHandler::get_style() const noexcept {

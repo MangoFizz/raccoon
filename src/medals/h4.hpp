@@ -3,7 +3,7 @@
 #ifndef RACCOON__MEDALS__H4_MEDALS_HPP
 #define RACCOON__MEDALS__H4_MEDALS_HPP
 
-#include "base.hpp"
+#include "queue.hpp"
 
 namespace Raccoon::Medals {
     constexpr const char *h4_medals_tag_collection = "raccoon\\medals\\h4";
@@ -11,7 +11,7 @@ namespace Raccoon::Medals {
     class H4RenderQueue : public RenderQueue {
     private:
         std::optional<TimePoint> m_last_pushed_medal;
-        std::chrono::microseconds m_medal_slide_duration = std::chrono::milliseconds(60);
+        double m_slide_duration_ms = 60;
         Medal *m_glow_sprite;
         MedalSequence m_medals_sequence;
         MedalSequence m_glow_sequence;

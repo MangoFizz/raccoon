@@ -15,7 +15,14 @@ namespace Raccoon::Medals {
     void H4RenderQueue::render() noexcept {
         auto now = std::chrono::steady_clock::now();
         
-        for(std::size_t i = m_renders.size(); i < m_max_renders && !m_queue.empty(); i++) {
+        if(m_last_pushed_medal) {
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - *m_last_pushed_medal).count();
+            if(elapsed > m_slide_duration_ms) {
+                m_last_pushed_medal.reset();
+            }
+        }
+        
+        for(std::size_t i = m_renders.size(); i < m_max_renders && !m_queue.empty() && !m_last_pushed_medal; i++) {
             auto &[time, medal] = m_renders.emplace_front(std::make_pair(now, m_queue.front()));
             m_queue.pop();
             m_last_pushed_medal = now;
@@ -33,13 +40,13 @@ namespace Raccoon::Medals {
         auto first_medal_time = it->first;
         auto curve = Math::QuadraticBezier::linear();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - first_medal_time).count();
-        auto progress = curve.get_point(elapsed / 60.0f).y;
+        auto progress = curve.get_point(static_cast<float>(elapsed) / m_slide_duration_ms).y;
         
         while(it != m_renders.end()) {
             auto [creation_time, medal] = *it;
             auto local_offset = offset;
 
-            if(elapsed < 60 && creation_time != first_medal_time) {
+            if(elapsed < m_slide_duration_ms && creation_time != first_medal_time) {
                 local_offset.x = (base_offset.x * progress) + (offset.x - base_offset.x);
             }
 
